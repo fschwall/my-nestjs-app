@@ -1,0 +1,55 @@
+import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import appInsights from 'applicationinsights';
+import compression from 'compression';
+import helmet from 'helmet';
+import { WinstonModule } from 'nest-winston';
+import { format, transports } from 'winston';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Load config service
+  const configService = app.get(ConfigService);
+
+  // Winston logger
+  app.useLogger(
+    WinstonModule.createLogger({
+      level: configService.get('LOG_LEVEL', 'debug'),
+      defaultMeta: {
+        service: configService.get('APP_NAME', 'my-nestjs-app'),
+      },
+      format: format.combine(
+        format.timestamp({ format: 'isoDateTime' }),
+        format.json(),
+        format.colorize({ all: true }),
+      ),
+      transports: [
+        new transports.File({ filename: 'error.log', level: 'error' }),
+        new transports.Console(),
+      ],
+    }),
+  );
+
+  // Compress responses
+  app.use(compression());
+
+  // Helmet security
+  app.use(helmet());
+
+  // Load application insights
+  if (
+    configService.get('NODE_ENV') === 'production' &&
+    configService.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
+  ) {
+    appInsights
+      .setup()
+      .setAutoCollectRequests(true)
+      .setAutoCollectConsole(true, false)
+      .start();
+  }
+
+  await app.listen(configService.get('APP_PORT', 3002));
+}
+void bootstrap();
