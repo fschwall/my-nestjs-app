@@ -6,9 +6,20 @@ import helmet from 'helmet';
 import { WinstonModule } from 'nest-winston';
 import { format, transports } from 'winston';
 import { AppModule } from './app.module';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   // Load config service
   const configService = app.get(ConfigService);
@@ -18,7 +29,7 @@ async function bootstrap() {
     WinstonModule.createLogger({
       level: configService.get('LOG_LEVEL', 'debug'),
       defaultMeta: {
-        service: configService.get('APP_NAME', 'my-nestjs-app'),
+        service: configService.get<string>('APP_NAME', 'my-nestjs-app'),
       },
       format: format.combine(
         format.timestamp({ format: 'isoDateTime' }),
