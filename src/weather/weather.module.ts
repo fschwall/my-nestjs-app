@@ -3,7 +3,7 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { WeatherService } from './weather.service';
 import { WeatherController } from './weather.controller';
-import { MemCacheModule } from '@src/mem-cache-module/mem-cache.module';
+import { MemCacheModule } from '../mem-cache-service/mem-cache.module';
 
 @Module({
   imports: [HttpModule, ConfigModule, MemCacheModule],

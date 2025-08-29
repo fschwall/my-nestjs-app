@@ -21,8 +21,8 @@ describe('AppController', () => {
       expect(appController).toBeDefined();
     });
 
-    it('should return "my-nextjs-app"', () => {
-      expect(appController.getApp()).toBe('my-nextjs-app');
+    it('should return "my-nestjs-app"', () => {
+      expect(appController.getApp()).toBe('my-nestjs-app');
     });
   });
 });
