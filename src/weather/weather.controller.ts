@@ -1,25 +1,23 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  // Patch,
-  // Param,
-  // Delete,
-  Query,
-  HttpCode,
-  // UsePipes,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, HttpCode } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { WeatherService } from './weather.service';
 import { CreateWeatherDto } from './dto/create-weather.dto';
-// import { WeatherValidationPipe } from './pipes/validation.pipe';
-// import { UpdateWeatherDto } from './dto/update-weather.dto';
+import {
+  GetCurrentWeatherApi,
+  GetForecastApi,
+  CreateWeatherApi,
+} from '../decorators/weather-api.decorator';
 
 @Controller('weather')
+@ApiTags('Weather')
+@Throttle({ default: { ttl: 60000, limit: 30 } }) // Weather endpoints: 30 requests/minute
 export class WeatherController {
   constructor(private readonly weatherService: WeatherService) {}
 
   @Post()
+  @CreateWeatherApi()
+  @Throttle({ default: { ttl: 60000, limit: 10 } }) // External API calls: 10 requests/minute
   // We could use a custom pipe like this if we want to customize the validation behavior
   // @UsePipes(
   //   new ValidationPipe({ whitelist: false, forbidNonWhitelisted: false }),
@@ -30,32 +28,16 @@ export class WeatherController {
   }
 
   @Get('current')
+  @GetCurrentWeatherApi()
+  @Throttle({ default: { ttl: 60000, limit: 10 } }) // External API calls: 10 requests/minute
   getCurrentWeather(@Query() query: CreateWeatherDto) {
     return this.weatherService.getCurrentWeather(query);
   }
 
   @Get('forecast')
+  @GetForecastApi()
+  @Throttle({ default: { ttl: 60000, limit: 10 } }) // External API calls: 10 requests/minute
   getForecast(@Query() query: CreateWeatherDto) {
     return this.weatherService.getForecast(query);
   }
-
-  // @Get()
-  // findAll() {
-  //   return this.weatherService.findAll();
-  // }
-
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
-  //   return this.weatherService.findOne(+id);
-  // }
-
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateWeatherDto: UpdateWeatherDto) {
-  //   return this.weatherService.update(+id, updateWeatherDto);
-  // }
-
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.weatherService.remove(+id);
-  // }
 }

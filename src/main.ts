@@ -8,6 +8,7 @@ import { format, transports } from 'winston';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -20,6 +21,16 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Swagger setup
+  const config = new DocumentBuilder()
+    .setTitle('Weather API')
+    .setDescription('A NestJS weather API with OpenWeatherMap integration')
+    .setVersion('1.0')
+    .addTag('Weather', 'Weather-related endpoints')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
 
   // Load config service
   const configService = app.get(ConfigService);

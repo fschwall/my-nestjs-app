@@ -41,8 +41,9 @@ export class WeatherService {
     }
 
     const { city, lat, lon, units = 'metric' } = createWeatherDto;
-
-    console.log(WeatherResponseDto);
+    this.logger.debug(
+      `getCurrentWeather called with: ${JSON.stringify(createWeatherDto)}`,
+    );
 
     if (!city && (lat === undefined || lon === undefined)) {
       throw new BadRequestException(
@@ -53,14 +54,8 @@ export class WeatherService {
     try {
       let url: string;
       if (city) {
-        console.log(city);
-        console.log(encodeURIComponent(city));
-        console.log(
-          `${this.baseUrl}/weather?q=${encodeURIComponent(city)}&appid=${this.apiKey}&units=${units}`,
-        );
         url = `${this.baseUrl}/weather?q=${encodeURIComponent(city)}&appid=${this.apiKey}&units=${units}`;
       } else {
-        console.log(lat, lon);
         url = `${this.baseUrl}/weather?lat=${lat}&lon=${lon}&appid=${this.apiKey}&units=${units}`;
       }
 
@@ -68,9 +63,7 @@ export class WeatherService {
         `Fetching weather data for ${city || `lat:${lat},lon:${lon}`}`,
       );
 
-      const response = await firstValueFrom(this.httpService.get(url));
-      const data = response.data;
-      console.log(data);
+      const { data } = await firstValueFrom(this.httpService.get(url));
 
       return {
         location: {
@@ -106,7 +99,9 @@ export class WeatherService {
     }
 
     const { city, lat, lon, units = 'metric' } = createWeatherDto;
-
+    this.logger.debug(
+      `getForecast called with: ${JSON.stringify(createWeatherDto)}`,
+    );
     if (!city && (lat === undefined || lon === undefined)) {
       throw new BadRequestException(
         'Either city or lat/lon coordinates must be provided',
@@ -118,7 +113,7 @@ export class WeatherService {
       ? `forecast:${city.trim().toLowerCase()}:${units}`
       : `forecast:${lat}:${lon}:${units}`;
 
-    // Try to get from cache first
+    // Try to get data from cache first
     const cached = await this.memCacheService.get<any>(cacheKey);
     if (cached) {
       this.logger.log(
@@ -139,8 +134,7 @@ export class WeatherService {
         `Fetching forecast data for ${city || `lat:${lat},lon:${lon}`}`,
       );
 
-      const response = await firstValueFrom(this.httpService.get(url));
-      const data = response.data;
+      const { data } = await firstValueFrom(this.httpService.get(url));
 
       // Cache the result
       await this.memCacheService.set(cacheKey, data);
@@ -156,26 +150,7 @@ export class WeatherService {
     }
   }
 
-  // Legacy methods for compatibility
   create(createWeatherDto: CreateWeatherDto) {
     return this.getCurrentWeather(createWeatherDto);
   }
-
-  // findAll() {
-  //   throw new BadRequestException('Please provide city or coordinates');
-  // }
-
-  // findOne(id: number) {
-  //   throw new BadRequestException(
-  //     'Please use getCurrentWeather with city or coordinates',
-  //   );
-  // }
-
-  // update(id: number, updateWeatherDto: UpdateWeatherDto) {
-  //   throw new BadRequestException('Weather data cannot be updated');
-  // }
-
-  // remove(id: number) {
-  //   throw new BadRequestException('Weather data cannot be removed');
-  // }
 }
