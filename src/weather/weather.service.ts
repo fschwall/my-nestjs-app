@@ -25,7 +25,6 @@ export class WeatherService {
       'OPENWEATHER_BASE_URL',
       'https://api.openweathermap.org/data/2.5',
     );
-    console.log('API Key loaded:', this.apiKey ? 'Present' : 'Missing');
     if (!this.apiKey) {
       this.logger.warn(
         'OPENWEATHER_API_KEY not found in environment variables',

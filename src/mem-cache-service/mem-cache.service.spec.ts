@@ -21,6 +21,13 @@ describe('MemCacheService', () => {
       get: jest.fn(),
     };
 
+    // Set up default config mocking before creating the module
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'CACHE_ENABLED') return 'true';
+      if (key === 'CACHE_EXPIRY_SECONDS') return 600;
+      return undefined;
+    });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MemCacheService,
@@ -41,6 +48,13 @@ describe('MemCacheService', () => {
 
     // Reset mocks before each test
     jest.clearAllMocks();
+
+    // Re-setup the config mocking after clearing mocks
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'CACHE_ENABLED') return 'true';
+      if (key === 'CACHE_EXPIRY_SECONDS') return 600;
+      return undefined;
+    });
   });
 
   it('should be defined', () => {
@@ -70,14 +84,36 @@ describe('MemCacheService', () => {
     it('should return null when cache is disabled', async () => {
       const key = 'test-key';
 
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'CACHE_ENABLED') return 'false';
-        return undefined;
-      });
+      // Create a new service instance with cache disabled
+      const mockConfigServiceDisabled = {
+        get: jest.fn().mockImplementation((key: string) => {
+          if (key === 'CACHE_ENABLED') return 'false';
+          if (key === 'CACHE_EXPIRY_SECONDS') return 600;
+          return undefined;
+        }),
+      };
 
-      const result = await service.get(key);
+      const moduleDisabled = await Test.createTestingModule({
+        providers: [
+          MemCacheService,
+          {
+            provide: CACHE_MANAGER,
+            useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() },
+          },
+          {
+            provide: ConfigService,
+            useValue: mockConfigServiceDisabled,
+          },
+        ],
+      }).compile();
 
-      expect(cacheManager.get).not.toHaveBeenCalled();
+      const serviceDisabled =
+        moduleDisabled.get<MemCacheService>(MemCacheService);
+      const cacheManagerDisabled = moduleDisabled.get(CACHE_MANAGER);
+
+      const result = await serviceDisabled.get(key);
+
+      expect(cacheManagerDisabled.get).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
 
@@ -122,14 +158,36 @@ describe('MemCacheService', () => {
       const key = 'test-key';
       const value = { data: 'test-data' };
 
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'CACHE_ENABLED') return 'false';
-        return undefined;
-      });
+      // Create a new service instance with cache disabled
+      const mockConfigServiceDisabled = {
+        get: jest.fn().mockImplementation((key: string) => {
+          if (key === 'CACHE_ENABLED') return 'false';
+          if (key === 'CACHE_EXPIRY_SECONDS') return 600;
+          return undefined;
+        }),
+      };
 
-      await service.set(key, value);
+      const moduleDisabled = await Test.createTestingModule({
+        providers: [
+          MemCacheService,
+          {
+            provide: CACHE_MANAGER,
+            useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() },
+          },
+          {
+            provide: ConfigService,
+            useValue: mockConfigServiceDisabled,
+          },
+        ],
+      }).compile();
 
-      expect(cacheManager.set).not.toHaveBeenCalled();
+      const serviceDisabled =
+        moduleDisabled.get<MemCacheService>(MemCacheService);
+      const cacheManagerDisabled = moduleDisabled.get(CACHE_MANAGER);
+
+      await serviceDisabled.set(key, value);
+
+      expect(cacheManagerDisabled.set).not.toHaveBeenCalled();
     });
   });
 
@@ -150,14 +208,36 @@ describe('MemCacheService', () => {
     it('should not delete cache when cache is disabled', async () => {
       const key = 'test-key';
 
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'CACHE_ENABLED') return 'false';
-        return undefined;
-      });
+      // Create a new service instance with cache disabled
+      const mockConfigServiceDisabled = {
+        get: jest.fn().mockImplementation((key: string) => {
+          if (key === 'CACHE_ENABLED') return 'false';
+          if (key === 'CACHE_EXPIRY_SECONDS') return 600;
+          return undefined;
+        }),
+      };
 
-      await service.del(key);
+      const moduleDisabled = await Test.createTestingModule({
+        providers: [
+          MemCacheService,
+          {
+            provide: CACHE_MANAGER,
+            useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() },
+          },
+          {
+            provide: ConfigService,
+            useValue: mockConfigServiceDisabled,
+          },
+        ],
+      }).compile();
 
-      expect(cacheManager.del).not.toHaveBeenCalled();
+      const serviceDisabled =
+        moduleDisabled.get<MemCacheService>(MemCacheService);
+      const cacheManagerDisabled = moduleDisabled.get(CACHE_MANAGER);
+
+      await serviceDisabled.del(key);
+
+      expect(cacheManagerDisabled.del).not.toHaveBeenCalled();
     });
   });
 });

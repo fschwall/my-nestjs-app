@@ -11,7 +11,7 @@ describe('WeatherService', () => {
   let service: WeatherService;
   let httpService: jest.Mocked<HttpService>;
   let configService: jest.Mocked<ConfigService>;
-  // let memCacheService: jest.Mocked<MemCacheService>;
+  let memCacheService: jest.Mocked<MemCacheService>;
 
   // const mockWeatherResponse: WeatherResponseDto = {
   //   location: {
@@ -49,7 +49,7 @@ describe('WeatherService', () => {
 
   beforeEach(async () => {
     const mockHttpService = {
-      get: jest.fn(),
+      get: jest.fn().mockReturnValue(of({})), // Provide default Observable
     };
 
     const mockConfigService = {
@@ -61,6 +61,14 @@ describe('WeatherService', () => {
       set: jest.fn(),
       del: jest.fn(),
     };
+
+    // Set up default config mocking before creating the module
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'OPENWEATHER_API_KEY') return 'test-api-key';
+      if (key === 'OPENWEATHER_BASE_URL')
+        return 'https://api.openweathermap.org/data/2.5';
+      return undefined;
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -84,6 +92,17 @@ describe('WeatherService', () => {
     httpService = module.get(HttpService);
     configService = module.get(ConfigService);
     memCacheService = module.get(MemCacheService);
+
+    // Reset mocks before each test
+    jest.clearAllMocks();
+
+    // Re-setup the config mocking after clearing mocks
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'OPENWEATHER_API_KEY') return 'test-api-key';
+      if (key === 'OPENWEATHER_BASE_URL')
+        return 'https://api.openweathermap.org/data/2.5';
+      return undefined;
+    });
   });
 
   it('should be defined', () => {
@@ -95,16 +114,6 @@ describe('WeatherService', () => {
       city: 'London',
       units: 'metric',
     };
-
-    beforeEach(() => {
-      // Mock API key
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'OPENWEATHER_API_KEY') return 'test-api-key';
-        if (key === 'OPENWEATHER_BASE_URL')
-          return 'https://api.openweathermap.org/data/2.5';
-        return undefined;
-      });
-    });
 
     it('should return weather data for valid city request', async () => {
       httpService.get.mockReturnValue(
@@ -163,9 +172,32 @@ describe('WeatherService', () => {
     });
 
     it('should throw BadRequestException when API key is not configured', async () => {
-      configService.get.mockReturnValue(''); // No API key
+      // Create a new service instance with no API key
+      const mockConfigServiceNoKey = {
+        get: jest.fn().mockReturnValue(''),
+      };
 
-      await expect(service.getCurrentWeather(validDto)).rejects.toThrow(
+      const moduleNoKey = await Test.createTestingModule({
+        providers: [
+          WeatherService,
+          {
+            provide: HttpService,
+            useValue: { get: jest.fn().mockReturnValue(of({})) },
+          },
+          {
+            provide: ConfigService,
+            useValue: mockConfigServiceNoKey,
+          },
+          {
+            provide: MemCacheService,
+            useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() },
+          },
+        ],
+      }).compile();
+
+      const serviceNoKey = moduleNoKey.get<WeatherService>(WeatherService);
+
+      await expect(serviceNoKey.getCurrentWeather(validDto)).rejects.toThrow(
         'Weather API key not configured',
       );
     });
@@ -193,19 +225,14 @@ describe('WeatherService', () => {
       units: 'metric',
     };
 
-    beforeEach(() => {
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'OPENWEATHER_API_KEY') return 'test-api-key';
-        if (key === 'OPENWEATHER_BASE_URL')
-          return 'https://api.openweathermap.org/data/2.5';
-        return undefined;
-      });
-    });
-
     it('should return forecast data for valid request', async () => {
       const mockForecastResponse = {
         list: [{ dt: 1642233600, main: { temp: 15.5 } }],
       };
+
+      // Mock cache miss
+      memCacheService.get.mockResolvedValue(null);
+
       httpService.get.mockReturnValue(
         of({
           data: mockForecastResponse,
@@ -223,13 +250,59 @@ describe('WeatherService', () => {
           'forecast?q=London&appid=test-api-key&units=metric',
         ),
       );
+      expect(memCacheService.get).toHaveBeenCalledWith(
+        'forecast:london:metric',
+      );
+      expect(memCacheService.set).toHaveBeenCalledWith(
+        'forecast:london:metric',
+        mockForecastResponse,
+      );
+      expect(result).toEqual(mockForecastResponse);
+    });
+
+    it('should return cached forecast data when available', async () => {
+      const mockForecastResponse = {
+        list: [{ dt: 1642233600, main: { temp: 15.5 } }],
+      };
+
+      // Mock cache hit
+      memCacheService.get.mockResolvedValue(mockForecastResponse);
+
+      const result = await service.getForecast(validDto);
+      expect(memCacheService.get).toHaveBeenCalledWith(
+        'forecast:london:metric',
+      );
+      expect(httpService.get).not.toHaveBeenCalled();
       expect(result).toEqual(mockForecastResponse);
     });
 
     it('should throw BadRequestException when API key is not configured', async () => {
-      configService.get.mockReturnValue(''); // No API key
+      // Create a new service instance with no API key
+      const mockConfigServiceNoKey = {
+        get: jest.fn().mockReturnValue(''),
+      };
 
-      await expect(service.getForecast(validDto)).rejects.toThrow(
+      const moduleNoKey = await Test.createTestingModule({
+        providers: [
+          WeatherService,
+          {
+            provide: HttpService,
+            useValue: { get: jest.fn().mockReturnValue(of({})) },
+          },
+          {
+            provide: ConfigService,
+            useValue: mockConfigServiceNoKey,
+          },
+          {
+            provide: MemCacheService,
+            useValue: { get: jest.fn(), set: jest.fn(), del: jest.fn() },
+          },
+        ],
+      }).compile();
+
+      const serviceNoKey = moduleNoKey.get<WeatherService>(WeatherService);
+
+      await expect(serviceNoKey.getForecast(validDto)).rejects.toThrow(
         'Weather API key not configured',
       );
     });
